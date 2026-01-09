@@ -4,6 +4,22 @@ A small **e-commerce-flavored microservices ecosystem** you can spin up to **exp
 
 The repo is organized around building a few focused services, wiring them together with both **HTTP** and **events**, then hammering the system with a **load generator** and observing how it behaves under pressure.
 
+Implementation note: the services in this repo are intended to be built with **Node.js + Express + TypeScript** (kept deliberately simple; no NestJS).
+
+## Quick Start
+
+```bash
+# Install dependencies
+npm install
+
+# Start auth service in development
+npm run dev:auth
+
+# Or run with Docker Compose
+cd services/auth-service
+docker-compose up --build
+```
+
 ## What you can do with this repo
 
 - **Try out load scenarios**: authentication bursts, profile reads/writes, avatar upload stress
