@@ -11,7 +11,8 @@
     "dev:auth": "npm run dev --workspace=auth-service",
     "dev:user": "npm run dev --workspace=user-service",
     "dev:media": "npm run dev --workspace=media-service",
-    "dev:gateway": "npm run dev --workspace=api-gateway"
+    "dev:gateway": "npm run dev --workspace=api-gateway",
+    "build:all": "npm run build --workspace=service-common && npm run build --workspaces --if-present"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
