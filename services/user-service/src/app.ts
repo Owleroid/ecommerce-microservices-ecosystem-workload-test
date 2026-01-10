@@ -8,7 +8,8 @@ import {
 } from 'service-common';
 import { config } from './config/env';
 import { initDatabase, checkDatabaseHealth } from './config/database';
-import { connectRedis, checkRedisHealth, redisClient } from './config/redis';
+import { connectRedis, checkRedisHealth, redisClient, connectEventEmitter, disconnectEventEmitter } from './config/redis';
+import { connectEventSubscriber, disconnectEventSubscriber } from './config/events';
 import { ProfileRepository } from './models/profile.repository';
 import { ProfileService } from './services/profile.service';
 import { ProfileController } from './controllers/profile.controller';
@@ -53,6 +54,13 @@ export const startServer = async (): Promise<void> => {
     // Connect to databases
     await initDatabase();
     await connectRedis();
+    await connectEventEmitter();
+
+    // Initialize dependencies
+    const profileRepository = new ProfileRepository();
+    
+    // Connect event subscriber
+    await connectEventSubscriber(profileRepository);
 
     // Create and start app
     const app = await createApp();
@@ -74,6 +82,8 @@ export const startServer = async (): Promise<void> => {
         logger.info('HTTP server closed');
         
         try {
+          await disconnectEventSubscriber();
+          await disconnectEventEmitter();
           await redisClient.quit();
           logger.info('Redis connection closed');
           process.exit(0);

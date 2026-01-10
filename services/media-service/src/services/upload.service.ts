@@ -1,9 +1,10 @@
-import { ValidationError, logger } from 'service-common';
+import { ValidationError, logger, createEventBase, UserAvatarUploadedEvent } from 'service-common';
 import { imageQueue } from '../config/queue';
 import { minioClient } from '../config/minio';
 import { config } from '../config/env';
 import { UploadJobData, UploadResponse, JobStatusResponse, ProcessedImageData } from '../models/upload.model';
 import { Readable } from 'stream';
+import { eventEmitter } from '../config/redis';
 
 export class UploadService {
   private allowedMimeTypes: string[];
@@ -56,6 +57,9 @@ export class UploadService {
       userId,
       fileName
     });
+
+    // Emit avatar uploaded event
+    await this.emitAvatarUploadedEvent(userId, job.id!, fileName);
 
     return {
       jobId: job.id!,
@@ -127,5 +131,39 @@ export class UploadService {
         'Content-Type': contentType
       }
     );
+  }
+
+  private async emitAvatarUploadedEvent(
+    userId: number,
+    jobId: string,
+    fileName: string
+  ): Promise<void> {
+    try {
+      const event: UserAvatarUploadedEvent = {
+        ...createEventBase('user.avatar.uploaded'),
+        eventType: 'user.avatar.uploaded',
+        data: {
+          userId,
+          jobId,
+          fileName,
+          uploadedAt: new Date().toISOString()
+        }
+      };
+
+      await eventEmitter.emit(event);
+
+      logger.info('Avatar uploaded event emitted', {
+        userId,
+        jobId,
+        eventId: event.eventId
+      });
+    } catch (error) {
+      logger.error('Failed to emit avatar uploaded event', {
+        error,
+        userId,
+        jobId
+      });
+      // Don't throw - event emission failure shouldn't break the upload
+    }
   }
 }

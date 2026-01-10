@@ -8,7 +8,7 @@ import {
 } from 'service-common';
 import { config } from './config/env';
 import { initMinIO, checkMinIOHealth } from './config/minio';
-import { connectRedis, checkRedisHealth } from './config/redis';
+import { connectRedis, checkRedisHealth, connectEventEmitter, disconnectEventEmitter } from './config/redis';
 import { checkQueueHealth } from './config/queue';
 import { UploadService } from './services/upload.service';
 import { UploadController } from './controllers/upload.controller';
@@ -53,6 +53,7 @@ export const startServer = async (): Promise<void> => {
 
     // Connect to infrastructure
     await connectRedis();
+    await connectEventEmitter();
     await initMinIO();
 
     // Start background worker
@@ -81,6 +82,8 @@ export const startServer = async (): Promise<void> => {
         try {
           await worker.close();
           logger.info('Worker closed');
+          await disconnectEventEmitter();
+          logger.info('Event emitter disconnected');
           process.exit(0);
         } catch (error) {
           logger.error('Error during shutdown', { error });

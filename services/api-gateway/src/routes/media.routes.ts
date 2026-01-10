@@ -2,15 +2,30 @@ import { Router } from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { logger } from 'service-common';
 import { config } from '../config/env';
+import { ServiceLoadBalancer } from '../utils/load-balancer';
 
 export const createMediaRoutes = (): Router => {
   const router = Router();
 
+  // Initialize load balancer for media service
+  const mediaLoadBalancer = new ServiceLoadBalancer(config.MEDIA_SERVICE_URL);
+
   const mediaProxy = createProxyMiddleware({
-    target: config.MEDIA_SERVICE_URL,
+    target: mediaLoadBalancer.getNext(),
     changeOrigin: true,
     pathRewrite: {
       '^/media': '/media'
+    },
+    router: (req) => {
+      // Get next target for each request (round-robin)
+      const target = mediaLoadBalancer.getNext();
+      logger.debug('Routing media request', {
+        method: req.method,
+        path: req.path,
+        target,
+        requestId: (req as any).requestId
+      });
+      return target;
     },
     onProxyReq: (_proxyReq, req) => {
       // For multipart uploads, don't try to fix body
@@ -23,7 +38,7 @@ export const createMediaRoutes = (): Router => {
         method: req.method,
         path: req.path,
         statusCode: proxyRes.statusCode,
-        target: config.MEDIA_SERVICE_URL,
+        instanceId: proxyRes.headers['x-instance-id'],
         requestId: (req as any).requestId
       });
     },

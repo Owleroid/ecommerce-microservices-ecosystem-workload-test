@@ -2,9 +2,10 @@ import { Worker, Job } from 'bullmq';
 import sharp from 'sharp';
 import { minioClient } from '../config/minio';
 import { config } from '../config/env';
-import { logger } from 'service-common';
+import { logger, createEventBase, UserAvatarProcessedEvent } from 'service-common';
 import { UploadJobData, ProcessedImageData } from '../models/upload.model';
 import { Readable } from 'stream';
+import { eventEmitter } from '../config/redis';
 
 const connection = {
   host: config.REDIS_HOST,
@@ -95,12 +96,25 @@ export const createImageWorker = (): Worker => {
           result
         });
 
+        // Emit avatar processed event
+        await emitAvatarProcessedEvent(job.data.userId, job.id!, result, 'completed');
+
         return result;
       } catch (error) {
         logger.error('Image processing failed', {
           jobId: job.id,
           error
         });
+
+        // Emit avatar processed event with failure
+        await emitAvatarProcessedEvent(
+          job.data.userId,
+          job.id!,
+          undefined,
+          'failed',
+          error instanceof Error ? error.message : 'Unknown error'
+        );
+
         throw error;
       }
     },
@@ -148,4 +162,43 @@ async function uploadToMinIO(
       'Content-Type': contentType
     }
   );
+}
+
+async function emitAvatarProcessedEvent(
+  userId: number,
+  jobId: string,
+  result: ProcessedImageData | undefined,
+  status: 'completed' | 'failed',
+  error?: string
+): Promise<void> {
+  try {
+    const event: UserAvatarProcessedEvent = {
+      ...createEventBase('user.avatar.processed'),
+      eventType: 'user.avatar.processed',
+      data: {
+        userId,
+        jobId,
+        originalUrl: result?.originalUrl || '',
+        thumbnailUrl: result?.thumbnailUrl || '',
+        status,
+        error
+      }
+    };
+
+    await eventEmitter.emit(event);
+
+    logger.info('Avatar processed event emitted', {
+      userId,
+      jobId,
+      status,
+      eventId: event.eventId
+    });
+  } catch (error) {
+    logger.error('Failed to emit avatar processed event', {
+      error,
+      userId,
+      jobId
+    });
+    // Don't throw - event emission failure shouldn't break the processing
+  }
 }

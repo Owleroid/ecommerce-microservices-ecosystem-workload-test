@@ -28,6 +28,10 @@ export const createRequestLogger = () => {
     const requestId = req.headers['x-request-id'] || `req-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     req.requestId = requestId;
     
+    // Add instance ID to response headers for tracking
+    res.setHeader('X-Instance-ID', instanceId);
+    res.setHeader('X-Request-ID', requestId);
+    
     logger.info({
       message: 'Incoming request',
       method: req.method,
@@ -44,7 +48,8 @@ export const createRequestLogger = () => {
         path: req.path,
         statusCode: res.statusCode,
         duration: `${duration}ms`,
-        requestId
+        requestId,
+        instanceId
       });
     });
 

@@ -1,7 +1,7 @@
-import { NotFoundError, logger } from 'service-common';
+import { NotFoundError, logger, createEventBase, UserProfileUpdatedEvent } from 'service-common';
 import { ProfileRepository } from '../models/profile.repository';
 import { UserProfile, UpdateProfileDto, ProfileResponse } from '../models/profile.model';
-import { redisClient } from '../config/redis';
+import { redisClient, eventEmitter } from '../config/redis';
 import { config } from '../config/env';
 
 const CACHE_PREFIX = 'user_profile:';
@@ -61,6 +61,9 @@ export class ProfileService {
     await this.cacheProfile(userId, response);
 
     logger.info('Profile updated', { userId, fields: Object.keys(data) });
+
+    // Emit profile updated event
+    await this.emitProfileUpdatedEvent(userId, data, response);
 
     return response;
   }
@@ -124,6 +127,43 @@ export class ProfileService {
       await redisClient.del(`${CACHE_PREFIX}${userId}`);
     } catch (error) {
       logger.error('Cache invalidation failed', { error, userId });
+    }
+  }
+
+  private async emitProfileUpdatedEvent(
+    userId: number,
+    updatedFields: UpdateProfileDto,
+    profile: ProfileResponse
+  ): Promise<void> {
+    try {
+      const event: UserProfileUpdatedEvent = {
+        ...createEventBase('user.profile.updated'),
+        eventType: 'user.profile.updated',
+        data: {
+          userId,
+          fields: Object.keys(updatedFields),
+          profile: {
+            firstName: profile.firstName,
+            lastName: profile.lastName,
+            bio: profile.bio,
+            phone: profile.phone,
+            avatarUrl: profile.avatarUrl
+          }
+        }
+      };
+
+      await eventEmitter.emit(event);
+
+      logger.info('Profile updated event emitted', {
+        userId,
+        eventId: event.eventId
+      });
+    } catch (error) {
+      logger.error('Failed to emit profile updated event', {
+        error,
+        userId
+      });
+      // Don't throw - event emission failure shouldn't break the update
     }
   }
 }
