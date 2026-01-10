@@ -17,37 +17,73 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
-# Check if docker-compose is available
-if ! command -v docker-compose &> /dev/null; then
-    echo -e "${RED}Error: docker-compose is not installed${NC}"
+# Check if docker compose is available (V2)
+if ! docker compose version &> /dev/null; then
+    echo -e "${RED}Error: docker compose is not available${NC}"
+    echo -e "${YELLOW}Try: sudo apt install docker-compose-plugin${NC}"
     exit 1
 fi
 
 cd "$(dirname "$0")"
 
-echo -e "${YELLOW}Starting infrastructure services...${NC}"
-docker-compose up -d postgres redis minio
+echo -e "${YELLOW}Building all service images...${NC}"
+docker compose build
+
+echo -e "${YELLOW}Starting infrastructure services (postgres, redis, minio)...${NC}"
+docker compose up -d postgres redis minio
 
 echo -e "${YELLOW}Waiting for infrastructure to be healthy...${NC}"
-sleep 10
+for i in {1..30}; do
+  if docker compose ps | grep -q "postgres.*healthy" && \
+     docker compose ps | grep -q "redis.*healthy" && \
+     docker compose ps | grep -q "minio.*healthy"; then
+    echo -e "${GREEN}✓ Infrastructure services are healthy${NC}"
+    break
+  fi
+  if [ $i -eq 30 ]; then
+    echo -e "${RED}✗ Timeout waiting for infrastructure${NC}"
+    docker compose logs postgres redis minio | tail -20
+    exit 1
+  fi
+  echo -n "."
+  sleep 2
+done
+echo ""
 
-echo -e "${YELLOW}Building and starting microservices...${NC}"
-docker-compose up --build -d auth-service user-service media-service
+echo -e "${YELLOW}Starting microservices (auth, user, media)...${NC}"
+docker compose up -d auth-service user-service media-service
 
-echo -e "${YELLOW}Waiting for services to be ready...${NC}"
-sleep 5
+echo -e "${YELLOW}Waiting for microservices to be healthy...${NC}"
+for i in {1..30}; do
+  if docker compose ps | grep -q "auth-service.*healthy" && \
+     docker compose ps | grep -q "user-service.*healthy" && \
+     docker compose ps | grep -q "media-service.*healthy"; then
+    echo -e "${GREEN}✓ Microservices are healthy${NC}"
+    break
+  fi
+  if [ $i -eq 30 ]; then
+    echo -e "${RED}✗ Timeout waiting for microservices${NC}"
+    docker compose logs auth-service user-service media-service | tail -30
+    exit 1
+  fi
+  echo -n "."
+  sleep 2
+done
+echo ""
 
 echo -e "${YELLOW}Starting API Gateway...${NC}"
-docker-compose up -d api-gateway
+docker compose up -d api-gateway
 
 echo -e "${YELLOW}Starting Nginx load balancer...${NC}"
-docker-compose up -d nginx
+docker compose up -d nginx
+
+sleep 3
 
 echo ""
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}  System Status${NC}"
 echo -e "${GREEN}========================================${NC}"
-docker-compose ps
+docker compose ps
 
 echo ""
 echo -e "${GREEN}========================================${NC}"
@@ -79,6 +115,6 @@ echo -e "${GREEN}========================================${NC}"
 echo ""
 echo -e "  curl http://localhost/health"
 echo ""
-echo -e "${YELLOW}View logs:${NC} docker-compose logs -f"
-echo -e "${YELLOW}Stop all:${NC} docker-compose down"
+echo -e "${YELLOW}View logs:${NC} docker compose logs -f"
+echo -e "${YELLOW}Stop all:${NC} docker compose down"
 echo ""

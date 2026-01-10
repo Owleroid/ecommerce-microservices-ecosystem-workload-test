@@ -14,8 +14,7 @@ export const createRateLimiter = () => {
     standardHeaders: true,
     legacyHeaders: false,
     store: new RedisStore({
-      // @ts-expect-error - RedisStore expects legacy client but works with v4
-      client: redisClient,
+      sendCommand: (...args: string[]) => redisClient.sendCommand(args),
       prefix: 'rl:',
     }),
     handler: (req, res) => {

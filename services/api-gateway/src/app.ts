@@ -113,7 +113,14 @@ export const startServer = async (): Promise<void> => {
     process.on('SIGINT', () => shutdown('SIGINT'));
 
   } catch (error) {
-    logger.error('Failed to start server', { error });
+    logger.error('Failed to start server', { 
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      } : error
+    });
+    console.error('Full error:', error);
     process.exit(1);
   }
 };

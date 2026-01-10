@@ -20,7 +20,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}Step 1: Starting scaled services...${NC}"
-docker-compose -f docker-compose.scale.yml up -d
+docker compose -f docker-compose.scale.yml up -d
 
 echo
 echo -e "${BLUE}Step 2: Waiting for services to be healthy...${NC}"
@@ -41,12 +41,12 @@ echo
 echo -e "${GREEN}✓ All services started${NC}"
 echo
 echo "To monitor logs:"
-echo "  docker-compose -f docker-compose.scale.yml logs -f auth-service-1 auth-service-2 auth-service-3"
-echo "  docker-compose -f docker-compose.scale.yml logs -f user-service-1 user-service-2"
-echo "  docker-compose -f docker-compose.scale.yml logs -f media-service-1 media-service-2"
+echo "  docker compose -f docker-compose.scale.yml logs -f auth-service-1 auth-service-2 auth-service-3"
+echo "  docker compose -f docker-compose.scale.yml logs -f user-service-1 user-service-2"
+echo "  docker compose -f docker-compose.scale.yml logs -f media-service-1 media-service-2"
 echo
 echo "To test load distribution:"
 echo "  ./scripts/test-load-distribution.sh"
 echo
 echo "To stop all services:"
-echo "  docker-compose -f docker-compose.scale.yml down"
+echo "  docker compose -f docker-compose.scale.yml down"
